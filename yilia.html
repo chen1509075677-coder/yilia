@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Heart</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0005;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    overflow: hidden;
+    font-family: 'Georgia', serif;
+  }
+  canvas { display: block; }
+  .label {
+    position: fixed;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255,100,120,0.5);
+    font-size: 13px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 0, 5);
+
+// Heart shape
+function createHeartShape() {
+  const shape = new THREE.Shape();
+  const x = 0, y = 0;
+  shape.moveTo(x, y + 1);
+  shape.bezierCurveTo(x, y + 1.4, x - 0.6, y + 1.8, x - 1, y + 1.8);
+  shape.bezierCurveTo(x - 1.8, y + 1.8, x - 1.8, y + 0.7, x - 1.8, y + 0.7);
+  shape.bezierCurveTo(x - 1.8, y + 0.1, x - 1.2, y - 0.6, x, y - 1.2);
+  shape.bezierCurveTo(x + 1.2, y - 0.6, x + 1.8, y + 0.1, x + 1.8, y + 0.7);
+  shape.bezierCurveTo(x + 1.8, y + 0.7, x + 1.8, y + 1.8, x + 1, y + 1.8);
+  shape.bezierCurveTo(x + 0.6, y + 1.8, x, y + 1.4, x, y + 1);
+  return shape;
+}
+
+const heartShape = createHeartShape();
+const extrudeSettings = {
+  depth: 0.6,
+  bevelEnabled: true,
+  bevelSegments: 12,
+  steps: 2,
+  bevelSize: 0.18,
+  bevelThickness: 0.18
+};
+
+const geometry = new THREE.ExtrudeGeometry(heartShape, extrudeSettings);
+geometry.center();
+
+// Create text texture
+function createTextTexture() {
+  const size = 512;
+  const tc = document.createElement('canvas');
+  tc.width = size; tc.height = size;
+  const ctx = tc.getContext('2d');
+
+  // Background matches heart color
+  ctx.fillStyle = '#ff1a3a';
+  ctx.fillRect(0, 0, size, size);
+
+  // Line 1: 我爱你
+  ctx.fillStyle = '#000000';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = 'bold 90px serif';
+  ctx.shadowColor = 'rgba(0,0,0,0.4)';
+  ctx.shadowBlur = 6;
+  ctx.fillText('我爱你', size / 2, size / 2 - 55);
+
+  // Line 2: YILIA
+  ctx.font = 'bold 64px Georgia, serif';
+  ctx.fillText('YILIA', size / 2, size / 2 + 55);
+
+  return new THREE.CanvasTexture(tc);
+}
+
+const textTex = createTextTexture();
+
+// Materials
+const material = new THREE.MeshPhysicalMaterial({
+  color: 0xff1a3a,
+  map: textTex,
+  metalness: 0.1,
+  roughness: 0.2,
+  reflectivity: 0.8,
+  clearcoat: 1.0,
+  clearcoatRoughness: 0.1,
+  emissive: 0x550010,
+  emissiveIntensity: 0.3,
+});
+
+const heart = new THREE.Mesh(geometry, material);
+heart.castShadow = true;
+scene.add(heart);
+
+// Wireframe overlay
+const wireMat = new THREE.MeshBasicMaterial({
+  color: 0xff6688,
+  wireframe: true,
+  transparent: true,
+  opacity: 0.06
+});
+const wireHeart = new THREE.Mesh(geometry, wireMat);
+scene.add(wireHeart);
+
+// Lights
+const ambient = new THREE.AmbientLight(0xffeef0, 0.4);
+scene.add(ambient);
+
+const mainLight = new THREE.DirectionalLight(0xffffff, 2.0);
+mainLight.position.set(3, 4, 5);
+mainLight.castShadow = true;
+scene.add(mainLight);
+
+const rimLight = new THREE.DirectionalLight(0xff4466, 1.2);
+rimLight.position.set(-3, -1, -3);
+scene.add(rimLight);
+
+const fillLight = new THREE.PointLight(0xff8899, 1.5, 10);
+fillLight.position.set(0, 2, 3);
+scene.add(fillLight);
+
+const backLight = new THREE.PointLight(0xff2255, 0.8, 8);
+backLight.position.set(0, -2, -4);
+scene.add(backLight);
+
+// Particle field
+const particleCount = 200;
+const particleGeo = new THREE.BufferGeometry();
+const positions = new Float32Array(particleCount * 3);
+for (let i = 0; i < particleCount * 3; i++) {
+  positions[i] = (Math.random() - 0.5) * 14;
+}
+particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+const particleMat = new THREE.PointsMaterial({
+  color: 0xff3355,
+  size: 0.04,
+  transparent: true,
+  opacity: 0.6
+});
+const particles = new THREE.Points(particleGeo, particleMat);
+scene.add(particles);
+
+// Mouse drag
+let isDragging = false;
+let prevMouse = { x: 0, y: 0 };
+let rotVel = { x: 0, y: 0 };
+
+canvas.addEventListener('mousedown', e => { isDragging = true; prevMouse = { x: e.clientX, y: e.clientY }; });
+canvas.addEventListener('mouseup', () => isDragging = false);
+canvas.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const dx = e.clientX - prevMouse.x;
+  const dy = e.clientY - prevMouse.y;
+  rotVel.y = dx * 0.01;
+  rotVel.x = dy * 0.01;
+  prevMouse = { x: e.clientX, y: e.clientY };
+});
+
+canvas.addEventListener('touchstart', e => { isDragging = true; prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY }; });
+canvas.addEventListener('touchend', () => isDragging = false);
+canvas.addEventListener('touchmove', e => {
+  const dx = e.touches[0].clientX - prevMouse.x;
+  const dy = e.touches[0].clientY - prevMouse.y;
+  rotVel.y = dx * 0.01;
+  rotVel.x = dy * 0.01;
+  prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+let time = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  time += 0.016;
+
+  // Heartbeat pulse
+  const beat = 1 + 0.04 * Math.pow(Math.max(0, Math.sin(time * 2.2)), 6);
+  heart.scale.set(beat, beat, beat);
+  wireHeart.scale.set(beat, beat, beat);
+
+  // Auto-rotate when not dragging
+  if (!isDragging) {
+    rotVel.y += (0.005 - rotVel.y) * 0.05;
+    rotVel.x += (0 - rotVel.x) * 0.05;
+  }
+
+  heart.rotation.y += rotVel.y;
+  heart.rotation.x += rotVel.x;
+  wireHeart.rotation.y = heart.rotation.y;
+  wireHeart.rotation.x = heart.rotation.x;
+
+  rotVel.x *= 0.88;
+  rotVel.y *= 0.88;
+
+  particles.rotation.y += 0.0008;
+  particles.rotation.x += 0.0003;
+
+  // Pulsing light
+  fillLight.intensity = 1.5 + 0.5 * Math.sin(time * 2.2);
+
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
